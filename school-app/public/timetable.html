@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>시간표 - 학교 앱</title>
+</head>
+<body>
+    <h1>시간표</h1>
+    <div id="timetable"></div>
+    <h2>과목 목록</h2>
+    <div id="subjects"></div>
+
+    <script>
+    async function fetchTimetableAndSubjects() {
+    const schoolInfo = JSON.parse(localStorage.getItem('schoolInfo'));
+    if (!schoolInfo) {
+        alert('학교 정보가 없습니다. 초기 설정 페이지로 이동합니다.');
+        window.location.href = '/';
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/timetable?schoolCode=${schoolInfo.schoolCode}&grade=${schoolInfo.grade}&classNum=${schoolInfo.classNum}&schoolType=${schoolInfo.schoolType}`);
+        const data = await response.json();
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        if (data.timetable && data.timetable.length > 0) {
+            displayTimetable(data.timetable);
+        } else {
+            document.getElementById('timetable').innerHTML = '<p>오늘의 시간표 정보가 없습니다.</p>';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('timetable').innerHTML = `<p>시간표 정보를 가져올 수 없습니다: ${error.message}</p>`;
+    }
+}
+
+        function displayTimetable(timetable) {
+            const timetableElement = document.getElementById('timetable');
+            const days = ['월', '화', '수', '목', '금'];
+            let timetableHTML = '<table border="1"><tr><th>교시</th>';
+            
+            days.forEach(day => {
+                timetableHTML += `<th>${day}</th>`;
+            });
+            timetableHTML += '</tr>';
+
+            for (let period = 1; period <= 7; period++) {
+                timetableHTML += `<tr><td>${period}</td>`;
+                days.forEach(day => {
+                    const lesson = timetable.find(t => t.PERIO === String(period) && t.ALL_TI_YMD.endsWith(day.toUpperCase()));
+                    timetableHTML += `<td>${lesson ? lesson.ITRT_CNTNT : ''}</td>`;
+                });
+                timetableHTML += '</tr>';
+            }
+
+            timetableHTML += '</table>';
+            timetableElement.innerHTML = timetableHTML;
+        }
+
+        function displaySubjects(subjects) {
+            const subjectsElement = document.getElementById('subjects');
+            let subjectsHTML = '<ul>';
+            subjects.forEach(subject => {
+                subjectsHTML += `<li>${subject.DDDEP_NM}: ${subject.MAJOR_NM}</li>`;
+            });
+            subjectsHTML += '</ul>';
+            subjectsElement.innerHTML = subjectsHTML;
+        }
+
+        fetchTimetableAndSubjects();
+    </script>
+</body>
+</html>

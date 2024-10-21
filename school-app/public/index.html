@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>학교 앱</title>
+    <style>
+        .autocomplete {
+            position: relative;
+            display: inline-block;
+        }
+        .autocomplete-items {
+            position: absolute;
+            border: 1px solid #d4d4d4;
+            border-bottom: none;
+            border-top: none;
+            z-index: 99;
+            top: 100%;
+            left: 0;
+            right: 0;
+        }
+        .autocomplete-items div {
+            padding: 10px;
+            cursor: pointer;
+            background-color: #fff; 
+            border-bottom: 1px solid #d4d4d4; 
+        }
+        .autocomplete-items div:hover {
+            background-color: #e9e9e9; 
+        }
+        .autocomplete-active {
+            background-color: DodgerBlue !important; 
+            color: #ffffff; 
+        }
+    </style>
+</head>
+<body>
+    <h1>학교 앱에 오신 것을 환영합니다</h1>
+    <form id="schoolForm">
+        <div class="autocomplete">
+            <input type="text" id="schoolName" placeholder="학교 이름" required>
+        </div>
+        <button type="submit">학교 검색</button>
+    </form>
+    <select id="schoolType">
+        <option value="elementary">초등학교</option>
+        <option value="middle">중학교</option>
+        <option value="high">고등학교</option>
+    </select>
+    <div id="schoolInfo" style="display: none;">
+        <select id="schoolSelect"></select>
+        <select id="grade"></select>
+        <select id="class"></select>
+        <select id="department" style="display: none;">
+            <option value="">학과 선택</option>
+        </select>
+        <button id="submitInfo">정보 제출</button>
+    </div>
+    <div id="introduction" style="display: none;">
+        <h2>앱 소개</h2>
+        <p>이 앱은 시간표, 급식 정보, 숙제 관리 기능을 제공합니다.</p>
+        <button id="goToHome">홈으로 이동</button>
+    </div>
+
+    <script>
+        const schoolForm = document.getElementById('schoolForm');
+        const schoolInfo = document.getElementById('schoolInfo');
+        const schoolSelect = document.getElementById('schoolSelect');
+        const gradeSelect = document.getElementById('grade');
+        const classSelect = document.getElementById('class');
+        const departmentSelect = document.getElementById('department');
+        const submitInfo = document.getElementById('submitInfo');
+        const introduction = document.getElementById('introduction');
+        const goToHome = document.getElementById('goToHome');
+        const schoolNameInput = document.getElementById('schoolName');
+
+        let schools = [];
+
+        schoolNameInput.addEventListener('input', async function() {
+            if (this.value.length > 1) {
+                try {
+                    const response = await fetch(`/api/schools?schoolName=${encodeURIComponent(this.value)}`);
+                    const data = await response.json();
+                    if (data.schoolInfo) {
+                        schools = data.schoolInfo[1].row;
+                        showAutocomplete(schools);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            }
+        });
+
+        function showAutocomplete(schools) {
+            let autocompleteList = document.getElementById('autocomplete-list');
+            if (!autocompleteList) {
+                autocompleteList = document.createElement('div');
+                autocompleteList.setAttribute('id', 'autocomplete-list');
+                autocompleteList.setAttribute('class', 'autocomplete-items');
+                schoolNameInput.parentNode.appendChild(autocompleteList);
+            }
+            autocompleteList.innerHTML = '';
+            schools.forEach(school => {
+                const div = document.createElement('div');
+                div.innerHTML = `${school.SCHUL_NM} (${school.ORG_RDNMA})`;
+                div.addEventListener('click', function() {
+                    schoolNameInput.value = school.SCHUL_NM;
+                    autocompleteList.innerHTML = '';
+                    populateSchoolSelect([school]);
+                });
+                autocompleteList.appendChild(div);
+            });
+        }
+
+        function populateSchoolSelect(schools) {
+            schoolSelect.innerHTML = schools.map(school => 
+                `<option value="${school.SD_SCHUL_CODE}" data-school-type="${school.SCHUL_KND_SC_NM}">${school.SCHUL_NM} (${school.ORG_RDNMA})</option>`
+            ).join('');
+            schoolInfo.style.display = 'block';
+            checkSchoolType();
+        }
+
+        schoolForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const schoolName = schoolNameInput.value;
+            try {
+                const response = await fetch(`/api/schools?schoolName=${encodeURIComponent(schoolName)}`);
+                const data = await response.json();
+                if (data.schoolInfo) {
+                    schools = data.schoolInfo[1].row;
+                    populateSchoolSelect(schools);
+                } else {
+                    alert('학교를 찾을 수 없습니다.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('학교 검색에 실패했습니다.');
+            }
+        });
+
+        async function checkSchoolType() {
+            const selectedSchool = schoolSelect.options[schoolSelect.selectedIndex];
+            const schoolType = selectedSchool.dataset.schoolType;
+            const schoolCode = selectedSchool.value;
+
+            try {
+                const response = await fetch(`/api/school-details?schoolCode=${schoolCode}`);
+                const data = await response.json();
+                
+                if (data.schoolDetails) {
+                    populateGradeAndClass(data.schoolDetails);
+                }
+
+                if (schoolType === "특성화고" || schoolType === "마이스터고") {
+                    departmentSelect.style.display = 'inline-block';
+                    fetchDepartments(schoolCode);
+                } else {
+                    departmentSelect.style.display = 'none';
+                    departmentSelect.innerHTML = '<option value="">학과 선택</option>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('학교 상세 정보를 가져오는데 실패했습니다.');
+            }
+        }
+
+        function populateGradeAndClass(schoolDetails) {
+            const grades = schoolDetails.grades;
+            const classes = schoolDetails.classes;
+
+            gradeSelect.innerHTML = grades.map(grade => 
+                `<option value="${grade}">${grade}학년</option>`
+            ).join('');
+
+            classSelect.innerHTML = classes.map(classNum => 
+                `<option value="${classNum}">${classNum}반</option>`
+            ).join('');
+        }
+
+        async function fetchDepartments(schoolCode) {
+            try {
+                const response = await fetch(`/api/departments?schoolCode=${schoolCode}`);
+                const data = await response.json();
+                if (data.departments && data.departments.length > 0) {
+                    departmentSelect.innerHTML = '<option value="">학과 선택</option>' + 
+                        data.departments.map(dept => `<option value="${dept.code}">${dept.name}</option>`).join('');
+                } else {
+                    departmentSelect.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('학과 정보를 가져오는데 실패했습니다.');
+            }
+        }
+
+        schoolSelect.addEventListener('change', checkSchoolType);
+
+        submitInfo.addEventListener('click', () => {
+            const schoolCode = schoolSelect.value;
+            const grade = document.getElementById('grade').value;
+            const classNum = document.getElementById('class').value;
+            const department = departmentSelect.value;
+            const schoolType = document.getElementById('schoolType').value; // 학교 유형 선택 요소 추가 필요
+            localStorage.setItem('schoolInfo', JSON.stringify({ schoolCode, grade, classNum, department, schoolType }));
+            introduction.style.display = 'block';
+        });
+
+        goToHome.addEventListener('click', () => {
+            window.location.href = '/home';
+        });
+
+        async function checkSchoolType() {
+    const selectedSchool = schoolSelect.options[schoolSelect.selectedIndex];
+    const schoolType = selectedSchool.dataset.schoolType;
+    const schoolCode = selectedSchool.value;
+
+    try {
+        const response = await fetch(`/api/school-details?schoolCode=${schoolCode}`);
+        const data = await response.json();
+        
+        if (data.schoolDetails) {
+            populateGradeAndClass(data.schoolDetails);
+        } else {
+            // 서버에서 데이터를 받아오지 못한 경우 기본 옵션 사용
+            populateGradeAndClass({
+                grades: [1, 2, 3],
+                classes: [1, 2, 3, 4, 5, 6, 7, 8]
+            });
+        }
+
+        if (schoolType === "특성화고" || schoolType === "마이스터고") {
+            departmentSelect.style.display = 'inline-block';
+            fetchDepartments(schoolCode);
+        } else {
+            departmentSelect.style.display = 'none';
+            departmentSelect.innerHTML = '<option value="">학과 선택</option>';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        // 오류 발생 시 기본 옵션 사용
+        populateGradeAndClass({
+            grades: [1, 2, 3],
+            classes: [1, 2, 3, 4, 5, 6, 7, 8]
+        });
+    }
+}
+    </script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>홈 - 학교 앱</title>
+</head>
+<body>
+    <h1>홈</h1>
+    <div id="timetableSummary"></div>
+    <div id="mealSummary"></div>
+    <a href="/timetable">시간표 보기</a>
+    <a href="/meal">급식 보기</a>
+
+    <script>
+        async function fetchSummaries() {
+            const schoolInfo = JSON.parse(localStorage.getItem('schoolInfo'));
+            if (!schoolInfo) {
+                alert('학교 정보가 없습니다. 초기 설정 페이지로 이동합니다.');
+                window.location.href = '/';
+                return;
+            }
+
+            try {
+                const timetableResponse = await fetch(`/api/timetable?schoolCode=${schoolInfo.schoolCode}&grade=${schoolInfo.grade}&class=${schoolInfo.classNum}`);
+                const timetableData = await timetableResponse.json();
+                if (timetableData.hisTimetable) {
+                    const todayClasses = timetableData.hisTimetable[1].row.slice(0, 4);
+                    document.getElementById('timetableSummary').innerHTML = `
+                        <h2>오늘의 시간표</h2>
+                        <ul>${todayClasses.map(cls => `<li>${cls.ITRT_CNTNT}</li>`).join('')}</ul>
+                    `;
+                }
+
+                const mealResponse = await fetch(`/api/meal?schoolCode=${schoolInfo.schoolCode}`);
+                const mealData = await mealResponse.json();
+                if (mealData.mealServiceDietInfo) {
+                    const todayMeal = mealData.mealServiceDietInfo[1].row[0];
+                    document.getElementById('mealSummary').innerHTML = `
+                        <h2>오늘의 급식</h2>
+                        <p>${todayMeal.DDISH_NM.replace(/<br\/>/g, ', ')}</p>
+                        <p>칼로리: ${todayMeal.CAL_INFO}</p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('정보를 가져오는데 실패했습니다.');
+            }
+        }
+        fetchSummaries();
+    </script>
+</body>
+</html>

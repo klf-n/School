@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>급식 - 학교 앱</title>
+</head>
+<body>
+    <h1>오늘의 급식</h1>
+    <div id="meal"></div>
+
+    <script>
+        async function fetchMeal() {
+            const schoolInfo = JSON.parse(localStorage.getItem('schoolInfo'));
+            if (!schoolInfo) {
+                alert('학교 정보가 없습니다. 초기 설정 페이지로 이동합니다.');
+                window.location.href = '/';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/meal?schoolCode=${schoolInfo.schoolCode}`);
+                const data = await response.json();
+                if (data.mealServiceDietInfo) {
+                    const meal = data.mealServiceDietInfo[1].row[0];
+                    document.getElementById('meal').innerHTML = `
+                        <h2>${meal.MLSV_YMD} 급식</h2>
+                        <h3>메뉴</h3>
+                        <p>${meal.DDISH_NM.replace(/<br\/>/g, '<br>')}</p>
+                        <h3>영양 정보</h3>
+                        <p>칼로리: ${meal.CAL_INFO}</p>
+                        <p>영양소: ${meal.NTR_INFO.replace(/<br\/>/g, '<br>')}</p>
+                    `;
+                } else {
+                    document.getElementById('meal').innerHTML = '<p>오늘의 급식 정보가 없습니다.</p>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('급식 정보를 가져오는데 실패했습니다.');
+            }
+        }
+        fetchMeal();
+    </script>
+</body>
+</html>

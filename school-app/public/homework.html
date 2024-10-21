@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>숙제 - 학교 앱</title>
+</head>
+<body>
+    <h1>숙제 관리</h1>
+    <form action="/homework" method="POST">
+        <input type="text" name="title" placeholder="숙제 제목" required>
+        <textarea name="content" placeholder="숙제 내용" required></textarea>
+        <input type="datetime-local" name="dueDate" required>
+        <button type="submit">숙제 추가</button>
+    </form>
+    <div id="homeworkList"></div>
+
+    <script>
+        // 서버에서 숙제 목록을 가져와 표시하는 로직
+        async function fetchHomework() {
+            // 여기에 서버에서 숙제 목록을 가져오는 로직 구현
+            document.getElementById('homeworkList').innerHTML = '숙제 목록';
+        }
+        fetchHomework();
+    </script>
+</body>
+</html>
